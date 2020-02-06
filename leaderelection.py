@@ -2,40 +2,21 @@ import networkx as nx
 import numpy as np 
 import itertools
 
+sim=100 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
-ntot=na+nh #total number of players
+ntot=na+nh #total num,ber of players
 p=1./float(ntot) #proba for one leader to be elected
 Kmax=40 #length of the attack
 grind_max=30 #how many "grinds" we allow
-sim=100 #number of simulations
 forks=[]
 
+print("With Kmax = {k} and grind_max = {g}, we have: ".format(k=Kmax,g=grind_max))
+
+### How many times does the adversary have a longest chain than honest chain with 33% of power?
 
 
-#This is the "no grinding" strategy 
-forks=[]
-for i in range(sim):
-	nogrinding_fork_length=0
-	slot_number=0
-	ca = np.random.binomial(na, p, 1)[0]#each player toss a coin that succeed with probability p
-	#(i.e. each player is elected with probability p)
-	while slot_number<Kmax:
-		if ca>0:#there were leaders elected, one block is created
-			nogrinding_fork_length+=1
-			#no leaders elected everyone moves to next slot
-		slot_number+=1
-		ca = np.random.binomial(na, p, 1)[0]#each player toss
-			#a new coin for that round
-	forks.append(nogrinding_fork_length)
-
-
-print "Length of Fork without grinding: {f}.".format(f=np.average(forks))
-
-### Case where adversary is grinding
-
-##this is how to add the next "set of nodes" we need to do it for every node until
-## we reach KMax
+### Grinding:
 def grind(n):
 	index_parent = n
 	lgth = G.node[n]['length']
@@ -44,8 +25,8 @@ def grind(n):
 	global ct
 	global current_list
 	if slot<Kmax:
-		for i in range(grind_max):#try to "skip" i slot to see if more successful (grinding 1)
-			ca = np.random.binomial(na*c, p, 1)[0]#toss na coins for each winning block (grinding 2)
+		for i in range(grind_max):
+			ca = np.random.binomial(na*c, p, 1)[0]
 			j=slot+i+1
 			if ca>0 and j<Kmax:
 				ct+=1
@@ -55,7 +36,25 @@ def grind(n):
 			#if no leader we need to go direct to the delay case 
 		#remove n from list
 	current_list.remove(n)
+
+##adversarial fork without grinding:
 forks=[]
+for i in range(sim):
+	nogrinding_fork_length=0
+	slot_number=0
+	ca = np.random.binomial(na, p, 1)[0]#honest players each toss a coin to see if elected leaders
+	while slot_number<Kmax:
+		if ca>0:#there were leaders elected, one block is created
+			nogrinding_fork_length+=1
+			#no leaders elected everyone moves to next slot
+		slot_number+=1
+		ca = np.random.binomial(na, p, 1)[0]#each honest leaders toss
+			#a new coin for that round
+	forks.append(nogrinding_fork_length)
+forks_adv=[]
+
+print "Length of Fork without grinding (adversary): {f}.".format(f=np.average(forks))
+
 for i in range(sim):
 	G=nx.DiGraph()
 	G.add_node(0,slot=0,length=0,num_winner=1)
@@ -65,21 +64,18 @@ for i in range(sim):
 	while current_list :
 		for n in current_list:
 			#print(current_list)
-			if G.node[n]['length']>max_l: max_l = G.node[n]['length']#we choose the longest fork
-			grind(n) #add all the blocks created for grinding
+			if G.node[n]['length']>max_l: max_l = G.node[n]['length']
+			grind(n)
 
-	forks.append(max_l)
+	forks_adv.append(max_l)
+print "Length of adversarial fork with grinding: {f}".format(f=np.average(forks_adv))
 
-print "Length of adversarial fork with grinding: {f}".format(f=np.average(forks))
-
-
-
-#what happens to the rest of the player? (not grinding)
-forks=[]
+#what happens to the rest of the player?
+forks_honest=[]
 for i in range(sim):
 	honest_fork_length=0
 	slot_number=0
-	ch = np.random.binomial(nh, p, 1)[0]#honest players each toss a coin to see if elected leaders
+	ch = np.random.binomial(nh, p, 1)[0]
 
 	while slot_number<Kmax:
 		if ch>0:#there were leaders elected, one block is created
@@ -88,8 +84,15 @@ for i in range(sim):
 		slot_number+=1
 		ch = np.random.binomial(nh, p, 1)[0]#each honest leaders toss
 			#a new coin for that round
-	forks.append(honest_fork_length)
+	forks_honest.append(honest_fork_length)
 
+print "Length of fork for the rest of player: {f}.".format(f=np.average(forks_honest))
+
+
+quality=[1 if forks_adv[i]>=forks_honest[i] else 0 for i in range(sim)  ]
+#praosh=[1 for i in range(len(ch)) if ch[i]>0 ]
 
 #longest chain case:
-print "Rest of player Fork: {f}.".format(f=np.average(forks))
+print "Adversary wins with probability: {f}. \nWithout grinding \
+the adversary wins with probability: {f2}".format(f=np.average(quality),\
+	f2=np.average([1 if forks[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
