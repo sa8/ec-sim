@@ -50,7 +50,7 @@ def pgrind(info,n_grind = grind_max,num_try=na):
     slot = info['slot']
     ret = []
     if slot >= Kmax:
-        return None
+        return []
 
     for i in range(n_grind):
         j = slot + i + 1
@@ -62,14 +62,6 @@ def pgrind(info,n_grind = grind_max,num_try=na):
             if nnode is not None:
                 ret.append(nnode)
     return ret
-
-def process_node(n):
-    #print(current_list)
-    new_nodes = pgrind(n)
-    if new_nodes is not None:
-        return new_nodes
-    else:
-        return []
 
 def psimulation():
     forks_adv=[]
@@ -88,7 +80,7 @@ def psimulation():
             while len(current_list) > 0:
                 ## ... might be better doing it in one shot at the end?
                 max_w = max(n['weight'] for n in current_list)
-                res = pool.map(process_node,current_list)
+                res = pool.map(pgrind,current_list)
                 # flatten out [[n1,n2],[n3,n4...]]
                 current_list = [n for subn in res for n in subn if len(n) > 0]
             forks_adv.append(max_w)
