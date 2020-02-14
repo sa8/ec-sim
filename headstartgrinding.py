@@ -79,7 +79,7 @@ def psimulation():
         # if sim starts getting really high, should put pool computation at this
         # stage
         for i in range(sim):
-            if i % 1 == 0:
+            if i % 5 == 0:
                 print("\t- simulation {}/{} starting".format(i,sim))
             nnode=new_node(0,0,0,1,parent=-1)
             max_w=0
