@@ -1,20 +1,20 @@
 import networkx as nx
 import numpy as np 
-import itertools
+import itertools, time
 
-sim=100 #number of simulations
+sim=1 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
-p=1./float(ntot) #proba for one leader to be elected
-Kmax=10 #length of the attack
-grind_max=4 #how many "grinds" we allow
+p=5./float(ntot) #proba for one leader to be elected
+Kmax=25 #length of the attack
+grind_max=5 #how many "grinds" we allow
 forks=[]
 
-print("With Kmax = {k} and grind_max = {g}, we have: ".format(k=Kmax,g=grind_max))
+print("With Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
 ### How many times does the adversary have a longest chain than honest chain with 33% of power?
-
+start_time = time.time()
 
 ### Grinding:
 def grind(n):
@@ -26,14 +26,15 @@ def grind(n):
 	global current_list
 	if slot<Kmax:
 		for i in range(grind_max):
-			ca = np.random.binomial(na*c, p, 1)[0]
 			j=slot+i+1
-			if ca>0 and j<Kmax:
-				ct+=1
-				G.add_node(ct,slot=j,length=lgth+1,num_winner=ca,parent=n)
-				G.add_edge(index_parent,ct)
-				current_list.append(ct)#add all new nodes to the list
-			#if no leader we need to go direct to the delay case 
+			if j<Kmax:
+				ca = np.random.binomial(na*c, p, 1)[0]
+				if ca>0 :
+					ct+=1
+					G.add_node(ct,slot=j,length=lgth+1,num_winner=ca,parent=n)
+					G.add_edge(index_parent,ct)
+					current_list.append(ct)#add all new nodes to the list
+				#if no leader we need to go direct to the delay case 
 		#remove n from list
 	current_list.remove(n)
 
@@ -95,3 +96,5 @@ quality=[1 if forks_adv[i]>=forks_honest[i] else 0 for i in range(sim)  ]
 print "Adversary wins with probability: {f}. \nWithout grinding \
 the adversary wins with probability: {f2}".format(f=np.average(quality),\
 	f2=np.average([1 if forks[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
+
+print("--- %s seconds ---" % (time.time() - start_time))

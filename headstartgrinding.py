@@ -1,20 +1,21 @@
 import networkx as nx
 import numpy as np 
-import itertools, time
+import itertools,time
 
-sim=10 #number of simulations
+sim=100 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
 p=5./float(ntot) #proba for one leader to be elected
-Kmax=13 #length of the attack
-grind_max=5 #how many "grinds" we allow
+Kmax=40 #length of the attack
+grind_max=20 #how many "grinds" we allow
 
-print("With Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
+start_time = time.time()
+
+print("Grinding with headstart and Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
 ### How many times does the adversary have a longest chain than honest chain with 33% of power?
 
-start_time = time.time()
 ### Grinding:
 def grind(n):
 	index_parent = n
@@ -39,6 +40,26 @@ def grind(n):
 			#remove n from list
 	current_list.remove(n)
 
+### Grinding:
+def grind_first(n):
+	index_parent = n
+	wght = G.node[n]['weight']
+	c = G.node[n]['num_winner']
+	slot = G.node[n]['slot']
+	global ct
+	global current_list
+	j=1
+	for k in range(c):
+		ca = np.random.binomial(ntot, p, 1)[0]
+		if ca>0:
+			ct+=1
+			G.add_node(ct,slot=j,weight=wght+ca-k,num_winner=ca,parent=n)##add all the blocks
+			#I can include
+			G.add_edge(index_parent,ct)
+			current_list.append(ct)#add all new nodes to the list
+#if no leader we need to go direct to the delay case 
+#remove n from list
+	current_list.remove(n)
 ##adversarial fork without grinding:
 forks=[]
 for i in range(sim):
@@ -53,7 +74,6 @@ for i in range(sim):
 			#a new coin for that round
 	forks.append(nogrinding_fork_weight)
 
-
 print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks))
 
 forks_adv=[]
@@ -61,8 +81,11 @@ for i in range(sim):
 	G=nx.DiGraph()
 	G.add_node(0,slot=0,weight=0,num_winner=1)
 	ct=0
-	current_list=[0]
 	max_w=0
+	current_list=[0]
+	grind_first(0)
+	non= G.number_of_nodes()
+	current_list = [non-1]
 	while current_list :
 		for n in current_list:
 			#print(current_list)
