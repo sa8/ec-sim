@@ -1,12 +1,14 @@
-import networkx as nx
 import numpy as np 
 import itertools,time
+import multiprocessing as mp
+import random
 
 sim=100 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
-p=5./float(ntot) #proba for one leader to be elected
+e=5
+p=float(e)/float(ntot) #proba for one leader to be elected
 Kmax=40 #length of the attack
 grind_max=20 #how many "grinds" we allow
 
@@ -14,52 +16,86 @@ start_time = time.time()
 
 print("Grinding with headstart and Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
+def inc(ct):
+    with ct.get_lock():
+        ct.value += 1
+
+def new_node(n,slot,weight,num_winner,parent=0):
+    return {
+        'n': n,
+        'slot': slot,
+        'weight':weight,
+        'num_winner':num_winner,
+        'parent':parent,
+    }
+
+def try_grind(j,base_weight,parent,num_try=na):
+    ca = np.random.binomial(num_try,p,1)[0]
+    if ca < 1:
+        return None
+    # weight + ca - k
+    weight = base_weight + ca 
+    ## random index node
+    idx = random.randrange(2**30)
+    nnode = new_node(idx,j,weight,ca,parent)
+    return nnode
+
+
 ### How many times does the adversary have a longest chain than honest chain with 33% of power?
 
-### Grinding:
-def grind(n):
-	index_parent = n
-	wght = G.node[n]['weight']
-	c = G.node[n]['num_winner']
-	slot = G.node[n]['slot']
-	global ct
-	global current_list
-	if slot<Kmax:
-		for i in range(grind_max):
-			j=slot+i+1
-			if j<Kmax:
-				for k in range(c):
-					ca = np.random.binomial(na, p, 1)[0]
-					if ca>0:
-						ct+=1
-						G.add_node(ct,slot=j,weight=wght+ca-k,num_winner=ca,parent=n)##add all the blocks
-						#I can include
-						G.add_edge(index_parent,ct)
-						current_list.append(ct)#add all new nodes to the list
-			#if no leader we need to go direct to the delay case 
-			#remove n from list
-	current_list.remove(n)
+def pgrind(info,n_grind = grind_max,num_try=na):
+    index_parent = info['n']
+    wght = info['weight']
+    c = info['num_winner']
+    slot = info['slot']
+    ret = []
+    if slot >= Kmax:
+        return None
 
-### Grinding:
-def grind_first(n):
-	index_parent = n
-	wght = G.node[n]['weight']
-	c = G.node[n]['num_winner']
-	slot = G.node[n]['slot']
-	global ct
-	global current_list
-	j=1
-	for k in range(c):
-		ca = np.random.binomial(ntot, p, 1)[0]
-		if ca>0:
-			ct+=1
-			G.add_node(ct,slot=j,weight=wght+ca-k,num_winner=ca,parent=n)##add all the blocks
-			#I can include
-			G.add_edge(index_parent,ct)
-			current_list.append(ct)#add all new nodes to the list
-#if no leader we need to go direct to the delay case 
-#remove n from list
-	current_list.remove(n)
+    for i in range(n_grind):
+        j = slot + i + 1
+        if j >= Kmax:
+            continue
+
+        for k in range(c):
+            nnode = try_grind(j,wght-k,index_parent,num_try=num_try)
+            if nnode is not None:
+                ret.append(nnode)
+    return ret
+
+def process_node(n):
+    #print(current_list)
+    new_nodes = pgrind(n)
+    if new_nodes is not None:
+        return new_nodes
+    else:
+        return []
+
+def psimulation():
+    forks_adv=[]
+    cpus = mp.cpu_count()
+    print("Parallel grinding simulation with {} cores:".format(cpus))
+    with mp.Pool(processes=cpus) as pool:
+        # if sim starts getting really high, should put pool computation at this
+        # stage
+        for i in range(sim):
+            if i % 1 == 0:
+                print("\t- simulation {}/{} starting".format(i,sim))
+            nnode=new_node(0,0,0,1,parent=-1)
+            max_w=0
+            current_list=[]
+            current_list.extend(pgrind(nnode,n_grind=1,num_try=ntot))
+            while len(current_list) > 0:
+                ## ... might be better doing it in one shot at the end?
+                max_w = max(n['weight'] for n in current_list)
+                res = pool.map(process_node,current_list)
+                # flatten out [[n1,n2],[n3,n4...]]
+                current_list = [n for subn in res for n in subn if len(n) > 0]
+            forks_adv.append(max_w)
+    print("\t--> Weight of adversarial fork with grinding: {f}".format(f=np.average(forks_adv)))
+    return forks_adv
+
+            
 ##adversarial fork without grinding:
 forks=[]
 for i in range(sim):
@@ -74,25 +110,9 @@ for i in range(sim):
 			#a new coin for that round
 	forks.append(nogrinding_fork_weight)
 
-print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks))
+print("Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks)))
 
-forks_adv=[]
-for i in range(sim):
-	G=nx.DiGraph()
-	G.add_node(0,slot=0,weight=0,num_winner=1)
-	ct=0
-	max_w=0
-	current_list=[0]
-	grind_first(0)
-	non= G.number_of_nodes()
-	current_list = [non-1]
-	while current_list :
-		for n in current_list:
-			#print(current_list)
-			if G.node[n]['weight']>max_w: max_w = G.node[n]['weight']
-			grind(n)
-	forks_adv.append(max_w)
-print "Weight of adversarial fork with grinding: {f}".format(f=np.average(forks_adv))
+forks_adv=psimulation()
 
 #what happens to the rest of the player?
 forks_honest=[]
@@ -109,15 +129,15 @@ for i in range(sim):
 			#a new coin for that round
 	forks_honest.append(honest_fork_weight)
 
-print "Weight of fork for the rest of player: {f}.".format(f=np.average(forks_honest))
+print("Weight of fork for the rest of player: {f}.".format(f=np.average(forks_honest)))
 
 
 quality=[1 if forks_adv[i]>=forks_honest[i] else 0 for i in range(sim)  ]
 #praosh=[1 for i in range(len(ch)) if ch[i]>0 ]
 
 #longest chain case:
-print "Adversary wins with probability: {f}. \nWithout grinding \
+print("Adversary wins with probability: {f}. \nWithout grinding \
 the adversary wins with probability: {f2}".format(f=np.average(quality),\
-	f2=np.average([1 if forks[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
+	f2=np.average([1 if forks[i]>=forks_honest[i] else 0 for i in range(sim) ])))
 
 print("--- %s seconds ---" % (time.time() - start_time))
