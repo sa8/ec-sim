@@ -2,13 +2,13 @@ import networkx as nx
 import numpy as np 
 import itertools,time
 
-sim=100 #number of simulations
+sim=1000 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
 p=5./float(ntot) #proba for one leader to be elected
-Kmax=40 #length of the attack
-grind_max=20 #how many "grinds" we allow
+Kmax=5 #length of the attack
+grind_max=2 #how many "grinds" we allow
 
 start_time = time.time()
 
