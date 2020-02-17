@@ -2,13 +2,13 @@ import networkx as nx
 import numpy as np 
 import itertools, time
 
-sim=10 #number of simulations
+sim=100 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
 p=5./float(ntot) #proba for one leader to be elected
-Kmax=13 #length of the attack
-grind_max=5 #how many "grinds" we allow
+Kmax=5 #length of the attack
+grind_max=3 #how many "grinds" we allow
 
 print("With Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
@@ -33,7 +33,7 @@ def grind(n):
 						ct+=1
 						G.add_node(ct,slot=j,weight=wght+ca-k,num_winner=ca,parent=n)##add all the blocks
 						#I can include
-						G.add_edge(index_parent,ct)
+						#G.add_edge(index_parent,ct)
 						current_list.append(ct)#add all new nodes to the list
 			#if no leader we need to go direct to the delay case 
 			#remove n from list
@@ -59,7 +59,7 @@ print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(fo
 forks_adv=[]
 for i in range(sim):
 	G=nx.DiGraph()
-	G.add_node(0,slot=0,weight=0,num_winner=1)
+	G.add_node(0,slot=-1,weight=0,num_winner=1)
 	ct=0
 	current_list=[0]
 	max_w=0
