@@ -11,27 +11,24 @@ na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
 e=5
 p=float(e)/float(ntot) #proba for one leader to be elected
-Kmax=40 #length of the attack
-grind_max=20 #how many "grinds" we allow
+Kmax=10 #length of the attack
+grind_max=5 #how many "grinds" we allow
 
 start_time = time.time()
 
 print("Grinding with headstart and Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
-def inc(ct):
-    with ct.get_lock():
-        ct.value += 1
-
-def new_node(n,slot,weight,num_winner,parent=0):
+def new_node(n,slot,weight,num_winner,length,parent=0):
     return {
         'n': n,
         'slot': slot,
         'weight':weight,
         'num_winner':num_winner,
         'parent':parent,
+        'length':length,
     }
 
-def try_grind(j,base_weight,parent,num_try=na):
+def try_grind(j,base_weight,parent,length, num_try=na):
     ca = np.random.binomial(num_try,p,1)[0]
     if ca < 1:
         return None
@@ -39,7 +36,7 @@ def try_grind(j,base_weight,parent,num_try=na):
     weight = base_weight + ca 
     ## random index node
     idx = random.randrange(2**30)
-    nnode = new_node(idx,j,weight,ca,parent)
+    nnode = new_node(idx,j,weight,ca,length,parent)
     return nnode
 
 
@@ -50,6 +47,7 @@ def pgrind(info,n_grind = grind_max,num_try=na):
     wght = info['weight']
     c = info['num_winner']
     slot = info['slot']
+    length = info['length']
     ret = []
     if slot >= Kmax:
         return []
@@ -60,12 +58,12 @@ def pgrind(info,n_grind = grind_max,num_try=na):
             continue
 
         for k in range(c):
-            nnode = try_grind(j,wght-k,index_parent,num_try=num_try)
+            nnode = try_grind(j,wght-k,index_parent,length+1, num_try=num_try)
             if nnode is not None:
                 ret.append(nnode)
     return ret
 
-def psimulation():
+def psimulation(max_fn):
     forks_adv=[]
     cpus = mp.cpu_count()
     print("Parallel grinding simulation with {} cores:".format(cpus))
@@ -75,18 +73,18 @@ def psimulation():
         for i in range(sim):
             if i % 5 == 0:
                 print("\t- simulation {}/{} starting".format(i,sim))
-            nnode=new_node(0,0,0,1,parent=-1)
-            max_w=0
+            nnode=new_node(0,0,0,1,0,parent=-1)
+            max_res=0
             current_list=[]
             current_list.extend(pgrind(nnode,n_grind=1,num_try=ntot))
             while len(current_list) > 0:
                 ## ... might be better doing it in one shot at the end?
-                max_w = max(n['weight'] for n in current_list)
+                max_res = max(max_fn(n) for n in current_list)
                 res = pool.map(pgrind,current_list)
                 # flatten out [[n1,n2],[n3,n4...]]
                 current_list = [n for subn in res for n in subn if len(n) > 0]
-            forks_adv.append(max_w)
-    print("\t--> Weight of adversarial fork with grinding: {f}".format(f=np.average(forks_adv)))
+            forks_adv.append(max_res)
+    print("\t--> Adversarial fork with grinding using {}: {f}".format(max_fn.__name__,f=np.average(forks_adv)))
     return forks_adv
 
             
@@ -106,7 +104,13 @@ for i in range(sim):
 
 print("Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks)))
 
-forks_adv=psimulation()
+def max_weight(n):
+    return n['weight']
+def max_length(n):
+    return n['length']
+
+forks_adv=psimulation(max_length)
+forks_adv=psimulation(max_weight)
 
 #what happens to the rest of the player?
 forks_honest=[]
