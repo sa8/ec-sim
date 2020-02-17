@@ -73,7 +73,7 @@ def psimulation(max_fn):
         for i in range(sim):
             if i % 5 == 0:
                 print("\t- simulation {}/{} starting".format(i,sim))
-            nnode=new_node(0,0,0,1,0,parent=-1)
+            nnode=new_node(0,-1,0,1,0,parent=-1)
             max_res=0
             current_list=[]
             current_list.extend(pgrind(nnode,n_grind=1,num_try=ntot))
