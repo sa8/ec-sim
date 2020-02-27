@@ -1,15 +1,16 @@
 import networkx as nx
 import numpy as np 
-import itertools, time
+import itertools, time, copy
 
-sim=1 #number of simulations
+sim=10000 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
-p=5./float(ntot) #proba for one leader to be elected
-Kmax=25 #length of the attack
-grind_max=5 #how many "grinds" we allow
+p=1./float(ntot) #proba for one leader to be elected
+Kmax=8 #length of the attack
+grind_max=7 #how many "grinds" we allow
 forks=[]
+
 
 print("With Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
@@ -24,18 +25,17 @@ def grind(n):
 	slot = G.node[n]['slot']
 	global ct
 	global current_list
-	if slot<Kmax:
-		for i in range(grind_max):
-			j=slot+i+1
-			if j<Kmax:
-				ca = np.random.binomial(na*c, p, 1)[0]
-				if ca>0 :
-					ct+=1
-					G.add_node(ct,slot=j,length=lgth+1,num_winner=ca,parent=n)
-					G.add_edge(index_parent,ct)
-					current_list.append(ct)#add all new nodes to the list
-				#if no leader we need to go direct to the delay case 
-		#remove n from list
+	for i in range(grind_max+1):
+		j=slot+i+1
+		if j<Kmax:
+			ca = np.random.binomial(na*c, p, 1)[0]
+			if ca>0 :
+				ct+=1
+				G.add_node(ct,slot=j,length=lgth+1,num_winner=ca,parent=n)
+				G.add_edge(index_parent,ct)
+				current_list.append(ct)#add all new nodes to the list
+			#if no leader we need to go direct to the delay case 
+	#remove n from list
 	current_list.remove(n)
 
 ##adversarial fork without grinding:
@@ -58,16 +58,18 @@ print "Length of Fork without grinding (adversary): {f}.".format(f=np.average(fo
 
 for i in range(sim):
 	G=nx.DiGraph()
-	G.add_node(0,slot=0,length=0,num_winner=1)
+	G.add_node(0,slot=-1,length=0,num_winner=1)
 	ct=0
 	current_list=[0]
 	max_l=0
-	while current_list :
-		for n in current_list:
+	newlist1 = copy.copy(current_list)
+	while newlist1 :
+		newlist2=copy.copy(newlist1)
+		for n in newlist2:
 			#print(current_list)
 			if G.node[n]['length']>max_l: max_l = G.node[n]['length']
 			grind(n)
-
+		newlist1=copy.copy(current_list)
 	forks_adv.append(max_l)
 print "Length of adversarial fork with grinding: {f}".format(f=np.average(forks_adv))
 

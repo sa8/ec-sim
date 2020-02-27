@@ -2,13 +2,13 @@ import networkx as nx
 import numpy as np 
 import itertools, time
 
-sim=100 #number of simulations
+sim=1000 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
 p=5./float(ntot) #proba for one leader to be elected
 Kmax=5 #length of the attack
-grind_max=3 #how many "grinds" we allow
+grind_max=Kmax #how many "grinds" we allow
 
 print("With Kmax = {k}, p={p} and grind_max = {g}, we have: ".format(k=Kmax,p=p,g=grind_max))
 
@@ -24,7 +24,7 @@ def grind(n):
 	global ct
 	global current_list
 	if slot<Kmax:
-		for i in range(grind_max):
+		for i in range(grind_max+1):
 			j=slot+i+1
 			if j<Kmax:
 				for k in range(c):
@@ -40,7 +40,7 @@ def grind(n):
 	current_list.remove(n)
 
 ##adversarial fork without grinding:
-forks=[]
+forks_nogrinding=[]
 for i in range(sim):
 	nogrinding_fork_weight=0
 	slot_number=0
@@ -51,10 +51,10 @@ for i in range(sim):
 		slot_number+=1
 		ca = np.random.binomial(na, p, 1)[0]#each honest leaders toss
 			#a new coin for that round
-	forks.append(nogrinding_fork_weight)
+	forks_nogrinding.append(nogrinding_fork_weight)
 
 
-print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks))
+print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks_nogrinding))
 
 forks_adv=[]
 for i in range(sim):
@@ -69,6 +69,7 @@ for i in range(sim):
 			if G.node[n]['weight']>max_w: max_w = G.node[n]['weight']
 			grind(n)
 	forks_adv.append(max_w)
+	#print(G.nodes())
 print "Weight of adversarial fork with grinding: {f}".format(f=np.average(forks_adv))
 
 #what happens to the rest of the player?
@@ -95,6 +96,6 @@ quality=[1 if forks_adv[i]>=forks_honest[i] else 0 for i in range(sim)  ]
 #longest chain case:
 print "Adversary wins with probability: {f}. \nWithout grinding \
 the adversary wins with probability: {f2}".format(f=np.average(quality),\
-	f2=np.average([1 if forks[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
+	f2=np.average([1 if forks_nogrinding[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
 
 print("--- %s seconds ---" % (time.time() - start_time))

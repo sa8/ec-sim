@@ -2,13 +2,14 @@ import networkx as nx
 import numpy as np 
 import itertools,time
 
-sim=1000 #number of simulations
+sim=10000 #number of simulations
 nh=67 #number of honest players
 na=33#number of adversarial players
 ntot=na+nh #total num,ber of players
-p=5./float(ntot) #proba for one leader to be elected
+p=1./float(ntot) #proba for one leader to be elected
 Kmax=5 #length of the attack
-grind_max=2 #how many "grinds" we allow
+grind_max=4 #how many "grinds" we allow
+vdf = 10
 
 start_time = time.time()
 
@@ -25,8 +26,8 @@ def grind(n):
 	global ct
 	global current_list
 	if slot<Kmax:
-		for i in range(grind_max):
-			j=slot+i+1
+		for i in range(grind_max+1):
+			j=slot+i*vdf+1
 			if j<Kmax:
 				for k in range(c):
 					ca = np.random.binomial(na, p, 1)[0]
@@ -61,20 +62,24 @@ def grind_first(n):
 #remove n from list
 	current_list.remove(n)
 ##adversarial fork without grinding:
-forks=[]
+##adversarial fork without grinding:
+forks_nogrinding=[]
 for i in range(sim):
 	nogrinding_fork_weight=0
 	slot_number=0
 	ca = np.random.binomial(na, p, 1)[0]#honest players each toss a coin to see if elected leaders
 	while slot_number<Kmax:
-		nogrinding_fork_weight+=ca
+		if ca>0:
+			nogrinding_fork_weight+=ca
 			#no leaders elected everyone moves to next slot
-		slot_number+=1
+			slot_number+=1
+		else:
+			slot_number+=vdf
 		ca = np.random.binomial(na, p, 1)[0]#each honest leaders toss
 			#a new coin for that round
-	forks.append(nogrinding_fork_weight)
+	forks_nogrinding.append(nogrinding_fork_weight)
 
-print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks))
+print "Weight of Fork without grinding (adversary): {f}.".format(f=np.average(forks_nogrinding))
 
 forks_adv=[]
 for i in range(sim):
@@ -102,9 +107,12 @@ for i in range(sim):
 	ch = np.random.binomial(nh, p, 1)[0]
 	while slot_number<Kmax:
 		#there were leaders elected, one block is created
-		honest_fork_weight+=ch
+		if ch>0:
+			honest_fork_weight+=ch
 			#no leaders elected everyone moves to next slot
-		slot_number+=1
+			slot_number+=1
+		else:
+			slot_number+=vdf
 		ch = np.random.binomial(nh, p, 1)[0]#each honest leaders toss
 			#a new coin for that round
 	forks_honest.append(honest_fork_weight)
@@ -118,6 +126,6 @@ quality=[1 if forks_adv[i]>=forks_honest[i] else 0 for i in range(sim)  ]
 #longest chain case:
 print "Adversary wins with probability: {f}. \nWithout grinding \
 the adversary wins with probability: {f2}".format(f=np.average(quality),\
-	f2=np.average([1 if forks[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
+	f2=np.average([1 if forks_nogrinding[i]>=forks_honest[i] else 0 for i in range(sim)  ]))
 
 print("--- %s seconds ---" % (time.time() - start_time))
